@@ -14,10 +14,10 @@ func getOffset(sensors *list.List) int {
 		if len(sensor.name) > size {
 			size = len(sensor.name)
 		}
-		for t := sensor.temps.Front(); t != nil; t = t.Next() {
-			temp := t.Value.(*temp)
-			if len(temp.label)+2 > size {
-				size = len(temp.label) + 2
+		for t := sensor.inputs.Front(); t != nil; t = t.Next() {
+			input := t.Value.(*input)
+			if len(input.label)+2 > size {
+				size = len(input.label) + 2
 			}
 		}
 	}
@@ -31,13 +31,21 @@ func printSensorValues(term *terminal, sensors *list.List, y *int) {
 		setBold(term)
 		printWindow(term, *y, 0, sensor.name)
 		unsetBold(term)
-		for t := sensor.temps.Front(); t != nil; t = t.Next() {
-			temp := t.Value.(*temp)
-			if temp.label != "" {
+		for t := sensor.inputs.Front(); t != nil; t = t.Next() {
+			input := t.Value.(*input)
+			if input.label != "" {
 				*y++
-				printWindow(term, *y, 2, temp.label)
+				printWindow(term, *y, 2, input.label)
 			}
-			printWindow(term, *y, offset, strconv.FormatFloat(temp.value, 'f', 1, 32))
+			switch input.type_ {
+			case TEMP:
+				value := float64(input.value) / 1000
+				str := strconv.FormatFloat(value, 'f', 1, 32)
+				printWindow(term, *y, offset, str)
+				break
+			default:
+				printWindow(term, *y, offset, strconv.Itoa(input.value))
+			}
 		}
 		*y += 2
 	}
@@ -69,7 +77,7 @@ func main() {
 
 	saveInitialConfig(term)
 	initTerminal()
-	initWindow(term, 20, 30)
+	initWindow(term, 0, 0)
 	nonCanonicalMode()
 	loop(term, sensors)
 	deleteWindow(term)

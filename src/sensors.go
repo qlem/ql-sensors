@@ -9,24 +9,25 @@ import (
 	"strconv"
 )
 
-type fan struct {
+const (
+	TEMP  = iota
+	FAN   = iota
+	OTHER = iota
+)
+
+type input struct {
 	number int
+	type_  int
 	label  string
 	value  int
 }
 
-type temp struct {
-	number int
-	label  string
-	value  float64
-}
-
 type sensor struct {
-	name  string
-	temps *list.List
+	name   string
+	inputs *list.List
 }
 
-func getNumberTemp(str string) int {
+func toInt(str string) int {
 	number, err := strconv.Atoi(str)
 	if err != nil {
 		log.Fatal(err)
@@ -52,13 +53,13 @@ func containsSensor(sensors *list.List, sensorName string) bool {
 	return false
 }
 
-func sensorContainsTemp(sensors *list.List, sensorName string, tempNumber int) bool {
+func sensorContainsInput(sensors *list.List, sensorName string, inputNumber int) bool {
 	for e := sensors.Front(); e != nil; e = e.Next() {
 		sensor := e.Value.(*sensor)
 		if sensor.name == sensorName {
-			for t := sensor.temps.Front(); t != nil; t = t.Next() {
-				temp := t.Value.(*temp)
-				if temp.number == tempNumber {
+			for t := sensor.inputs.Front(); t != nil; t = t.Next() {
+				input := t.Value.(*input)
+				if input.number == inputNumber {
 					return true
 				}
 			}
@@ -77,14 +78,14 @@ func getSensorFromList(sensors *list.List, sensorName string) *sensor {
 	return nil
 }
 
-func getTempFromSensor(sensors *list.List, sensorName string, tempNumber int) *temp {
+func getInputFromSensor(sensors *list.List, sensorName string, inputNumber int) *input {
 	for e := sensors.Front(); e != nil; e = e.Next() {
 		sensor := e.Value.(*sensor)
 		if sensor.name == sensorName {
-			for t := sensor.temps.Front(); t != nil; t = t.Next() {
-				temp := t.Value.(*temp)
-				if temp.number == tempNumber {
-					return temp
+			for t := sensor.inputs.Front(); t != nil; t = t.Next() {
+				input := t.Value.(*input)
+				if input.number == inputNumber {
+					return input
 				}
 			}
 		}
@@ -95,35 +96,32 @@ func getTempFromSensor(sensors *list.List, sensorName string, tempNumber int) *t
 func addSensorToList(sensors *list.List, sensorName string) {
 	sensor := new(sensor)
 	sensor.name = sensorName
-	sensor.temps = list.New()
+	sensor.inputs = list.New()
 	sensors.PushBack(sensor)
 }
 
-func addTempToSensor(sensors *list.List, sensorName string, tempNumber int) {
-	temp := new(temp)
-	temp.number = tempNumber
+func addInputToSensor(sensors *list.List, sensorName string, inputNumber int, inputType int) {
+	input := new(input)
+	input.number = inputNumber
+	input.type_ = inputType
 	sensor := getSensorFromList(sensors, sensorName)
-	sensor.temps.PushBack(temp)
+	sensor.inputs.PushBack(input)
 }
 
-func addFanToSensor(sensors *list.List, sensorName string, fanNumber int) {
-	fan := new(fan)
-	fan.number = fanNumber
-	sensor := getSensorFromList(sensors, sensorName)
-	sensor.temps.PushBack(fan)
+func getType(str []byte) int {
+	switch string(str) {
+	case "temp":
+		return TEMP
+	case "fan":
+		return FAN
+	default:
+		return OTHER
+	}
 }
 
 func refreshSensorValues(files []os.FileInfo, path string, sensors *list.List) {
 
-	validTempInputFile := regexp.MustCompile(`^temp[0-9]_input$`)
-	validTempLabelFile := regexp.MustCompile(`^temp[0-9]_label$`)
-	tempInputNumber := regexp.MustCompile(`^temp(\d?)_input$`)
-	tempLabelNumber := regexp.MustCompile(`^temp(\d?)_label$`)
-
-	/* validFanInputFile := regexp.MustCompile(`^fan[0-9]_input$`)
-	validFanLabelFile := regexp.MustCompile(`^fan[0-9]_label$`)
-	fanInputNumber := regexp.MustCompile(`^fan(\d?)_input$`)
-	fanLabelNumber := regexp.MustCompile(`^fan(\d?)_label$`) */
+	validFile := regexp.MustCompile(`^([a-z]+)([0-9]+)_(input|label)$`)
 
 	name := getContentFile(path + "/name")
 
@@ -133,33 +131,27 @@ func refreshSensorValues(files []os.FileInfo, path string, sensors *list.List) {
 
 	for _, file := range files {
 
-		if validTempInputFile.MatchString(file.Name()) {
-			tempFilePath := path + "/" + file.Name()
-			content := getContentFile(tempFilePath)
-			number := getNumberTemp(string(tempInputNumber.FindSubmatch([]byte(file.Name()))[1]))
+		if validFile.MatchString(file.Name()) {
+			fileName := path + "/" + file.Name()
+			content := getContentFile(fileName)
+			subs := validFile.FindSubmatch([]byte(file.Name()))
+			number := toInt(string(subs[2]))
+			type_ := getType(subs[1])
+			fileType := string(subs[3])
 
-			if !sensorContainsTemp(sensors, name, number) {
-				addTempToSensor(sensors, name, number)
+			if !sensorContainsInput(sensors, name, number) {
+				addInputToSensor(sensors, name, number, type_)
 			}
 
-			temp := getTempFromSensor(sensors, name, number)
-			value, err := strconv.ParseFloat(content, 64)
-			if err != nil {
-				log.Fatal(err)
+			input := getInputFromSensor(sensors, name, number)
+			switch fileType {
+			case "input":
+				input.value = toInt(content)
+				break
+			case "label":
+				input.label = content
+				break
 			}
-			temp.value = value / 1000
-		}
-
-		if validTempLabelFile.MatchString(file.Name()) {
-			labelFilePath := path + "/" + file.Name()
-			label := getContentFile(labelFilePath)
-			number := getNumberTemp(string(tempLabelNumber.FindSubmatch([]byte(file.Name()))[1]))
-
-			if !sensorContainsTemp(sensors, name, number) {
-				addTempToSensor(sensors, name, number)
-			}
-			temp := getTempFromSensor(sensors, name, number)
-			temp.label = label
 		}
 	}
 }
