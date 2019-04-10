@@ -5,6 +5,7 @@ import (
 	"container/list"
 	"os"
 	"strconv"
+	"time"
 )
 
 func getOffset(sensors *list.List) int {
@@ -47,13 +48,14 @@ func printSensorValues(term *terminal, sensors *list.List, y *int) {
 				printWindow(term, *y, offset, strconv.Itoa(input.value))
 			}
 		}
-		*y += 2
+		*y++
 	}
 }
 
 func loop(term *terminal, sensors *list.List) {
 	reader := bufio.NewReader(os.Stdin)
 	run := true
+	ref := time.Unix(0, 0)
 	for run {
 		buffer := make([]byte, 10)
 		if _, err := reader.Read(buffer); err != nil {
@@ -62,12 +64,18 @@ func loop(term *terminal, sensors *list.List) {
 			run = false
 		}
 
-		y := 0
-		windowClear(term)
-		refreshSensorList(sensors)
-		printSensorValues(term, sensors, &y)
-		printWindow(term, y, 0, "Press <q> for quit")
-		windowRefresh(term)
+		now := time.Now()
+		delta := now.Sub(ref)
+		if delta.Seconds() >= 1 {
+			y := 0
+			windowClear(term)
+			refreshSensorList(sensors)
+			printSensorValues(term, sensors, &y)
+			y++
+			printWindow(term, y, 0, "Press <q> for quit")
+			windowRefresh(term)
+			ref = time.Now()
+		}
 	}
 }
 
