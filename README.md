@@ -1,6 +1,6 @@
 # ql-sensors
 
-Small program who displays sensors input values from **/sys/class/hwmon**. Written in **[golang](https://golang.org/)** and uses the C library **ncurses** for graphics.
+Small program who provides sensors input values monitoring from **/sys/class/hwmon** in shell. Written in **[golang](https://golang.org/)** and uses the C library **ncurses** for graphics.
 
 ### Installation
 
@@ -22,6 +22,6 @@ Simply run:
 $> qlsensors
 ```
 
-### Screenshot
+#### Screenshot
 
-![screenshot]()
+![screenshot](https://raw.githubusercontent.com/qlem/ql-sensors/master/screenshot.png)
