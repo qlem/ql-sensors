@@ -9,20 +9,14 @@ import (
 	"strconv"
 )
 
-const (
-	TEMP  = iota
-	FAN   = iota
-	OTHER = iota
-)
-
-type input struct {
+type Input struct {
 	number int
-	type_  int
+	type_  string
 	label  string
-	value  int
+	value  string
 }
 
-type sensor struct {
+type Sensor struct {
 	name   string
 	inputs *list.List
 }
@@ -45,7 +39,7 @@ func getContentFile(path string) string {
 
 func containsSensor(sensors *list.List, sensorName string) bool {
 	for e := sensors.Front(); e != nil; e = e.Next() {
-		sensor := e.Value.(*sensor)
+		sensor := e.Value.(*Sensor)
 		if sensor.name == sensorName {
 			return true
 		}
@@ -55,10 +49,10 @@ func containsSensor(sensors *list.List, sensorName string) bool {
 
 func sensorContainsInput(sensors *list.List, sensorName string, inputNumber int) bool {
 	for e := sensors.Front(); e != nil; e = e.Next() {
-		sensor := e.Value.(*sensor)
+		sensor := e.Value.(*Sensor)
 		if sensor.name == sensorName {
 			for t := sensor.inputs.Front(); t != nil; t = t.Next() {
-				input := t.Value.(*input)
+				input := t.Value.(*Input)
 				if input.number == inputNumber {
 					return true
 				}
@@ -68,9 +62,9 @@ func sensorContainsInput(sensors *list.List, sensorName string, inputNumber int)
 	return false
 }
 
-func getSensorFromList(sensors *list.List, sensorName string) *sensor {
+func getSensorFromList(sensors *list.List, sensorName string) *Sensor {
 	for e := sensors.Front(); e != nil; e = e.Next() {
-		sensor := e.Value.(*sensor)
+		sensor := e.Value.(*Sensor)
 		if sensor.name == sensorName {
 			return sensor
 		}
@@ -78,12 +72,12 @@ func getSensorFromList(sensors *list.List, sensorName string) *sensor {
 	return nil
 }
 
-func getInputFromSensor(sensors *list.List, sensorName string, inputNumber int) *input {
+func getInputFromSensor(sensors *list.List, sensorName string, inputNumber int) *Input {
 	for e := sensors.Front(); e != nil; e = e.Next() {
-		sensor := e.Value.(*sensor)
+		sensor := e.Value.(*Sensor)
 		if sensor.name == sensorName {
 			for t := sensor.inputs.Front(); t != nil; t = t.Next() {
-				input := t.Value.(*input)
+				input := t.Value.(*Input)
 				if input.number == inputNumber {
 					return input
 				}
@@ -94,28 +88,30 @@ func getInputFromSensor(sensors *list.List, sensorName string, inputNumber int) 
 }
 
 func addSensorToList(sensors *list.List, sensorName string) {
-	sensor := new(sensor)
+	sensor := new(Sensor)
 	sensor.name = sensorName
 	sensor.inputs = list.New()
 	sensors.PushBack(sensor)
 }
 
-func addInputToSensor(sensors *list.List, sensorName string, inputNumber int, inputType int) {
-	input := new(input)
+func addInputToSensor(sensors *list.List, sensorName string, inputNumber int, inputType string) {
+	input := new(Input)
 	input.number = inputNumber
 	input.type_ = inputType
 	sensor := getSensorFromList(sensors, sensorName)
 	sensor.inputs.PushBack(input)
 }
 
-func getType(str []byte) int {
-	switch string(str) {
+func setValue(input *Input, rawValue string) {
+	switch input.type_ {
 	case "temp":
-		return TEMP
-	case "fan":
-		return FAN
+		dec := toInt(rawValue)
+		float := float64(dec) / 1000
+		str := strconv.FormatFloat(float, 'f', 1, 32)
+		input.value = str
+		break
 	default:
-		return OTHER
+		input.value = rawValue
 	}
 }
 
@@ -136,7 +132,7 @@ func refreshSensorValues(files []os.FileInfo, path string, sensors *list.List) {
 			content := getContentFile(fileName)
 			subs := validFile.FindSubmatch([]byte(file.Name()))
 			number := toInt(string(subs[2]))
-			type_ := getType(subs[1])
+			type_ := string(subs[1])
 			fileType := string(subs[3])
 
 			if !sensorContainsInput(sensors, name, number) {
@@ -146,7 +142,7 @@ func refreshSensorValues(files []os.FileInfo, path string, sensors *list.List) {
 			input := getInputFromSensor(sensors, name, number)
 			switch fileType {
 			case "input":
-				input.value = toInt(content)
+				setValue(input, content)
 				break
 			case "label":
 				input.label = content

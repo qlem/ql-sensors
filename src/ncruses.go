@@ -12,38 +12,46 @@ package main
 import "C"
 import "unsafe"
 
-type terminal struct {
+type Terminal struct {
 	window      *C.WINDOW
 	initialConf C.struct_termios
 }
 
-func setBold(term *terminal) {
+func setReverse(term *Terminal) {
+	C.wattron(term.window, C.A_REVERSE)
+}
+
+func unsetReverse(term *Terminal) {
+	C.wattroff(term.window, C.A_REVERSE)
+}
+
+func setBold(term *Terminal) {
 	C.wattron(term.window, C.A_BOLD)
 }
 
-func unsetBold(term *terminal) {
+func unsetBold(term *Terminal) {
 	C.wattroff(term.window, C.A_BOLD)
 }
 
-func printWindow(term *terminal, y int, x int, str string) {
+func printWindow(term *Terminal, y int, x int, str string) {
 	cstr := C.CString(str)
 	C.printWindow(term.window, C.int(y), C.int(x), cstr)
 	C.free(unsafe.Pointer(cstr))
 }
 
-func initWindow(term *terminal, nbLines int, nbColumns int) {
+func initWindow(term *Terminal, nbLines int, nbColumns int) {
 	term.window = C.newwin(C.int(nbLines), C.int(nbColumns), 0, 0)
 }
 
-func windowClear(term *terminal) {
+func windowClear(term *Terminal) {
 	C.wclear(term.window)
 }
 
-func windowRefresh(term *terminal) {
+func windowRefresh(term *Terminal) {
 	C.wrefresh(term.window)
 }
 
-func deleteWindow(term *terminal) {
+func deleteWindow(term *Terminal) {
 	C.delwin(term.window)
 }
 
@@ -62,11 +70,11 @@ func nonCanonicalMode() {
 	C.tcsetattr(C.fileno(C.stdin), C.TCSANOW, &config)
 }
 
-func resetTerminal(term *terminal) {
+func resetTerminal(term *Terminal) {
 	C.tcsetattr(C.fileno(C.stdin), C.TCSANOW, &term.initialConf)
 }
 
-func saveInitialConfig(term *terminal) {
+func saveInitialConfig(term *Terminal) {
 	C.tcgetattr(C.fileno(C.stdin), &term.initialConf)
 }
 
