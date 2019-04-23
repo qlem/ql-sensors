@@ -107,7 +107,7 @@ func setValue(input *Input, rawValue string) {
 	case "temp":
 		dec := toInt(rawValue)
 		float := float64(dec) / 1000
-		str := strconv.FormatFloat(float, 'f', 1, 32)
+		str := strconv.FormatFloat(float, 'f', 0, 32)
 		input.value = str
 		break
 	default:
