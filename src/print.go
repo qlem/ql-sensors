@@ -80,7 +80,7 @@ func printValues(term *Terminal, sensors *list.List) {
 		unsetBold(term)
 		for t := sensor.inputs.Front(); t != nil; t = t.Next() {
 			input := t.Value.(*Input)
-			if input.label != "" {
+			if sensor.inputs.Len() > 1 {
 				y++
 				printWindow(term, y, 2, input.label)
 			}

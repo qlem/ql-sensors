@@ -29,79 +29,6 @@ func toInt(str string) int {
 	return number
 }
 
-func getContentFile(path string) string {
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return string(content[:len(content)-1])
-}
-
-func containsSensor(sensors *list.List, sensorName string) bool {
-	for e := sensors.Front(); e != nil; e = e.Next() {
-		sensor := e.Value.(*Sensor)
-		if sensor.name == sensorName {
-			return true
-		}
-	}
-	return false
-}
-
-func sensorContainsInput(sensors *list.List, sensorName string, inputNumber int) bool {
-	for e := sensors.Front(); e != nil; e = e.Next() {
-		sensor := e.Value.(*Sensor)
-		if sensor.name == sensorName {
-			for t := sensor.inputs.Front(); t != nil; t = t.Next() {
-				input := t.Value.(*Input)
-				if input.number == inputNumber {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
-func getSensorFromList(sensors *list.List, sensorName string) *Sensor {
-	for e := sensors.Front(); e != nil; e = e.Next() {
-		sensor := e.Value.(*Sensor)
-		if sensor.name == sensorName {
-			return sensor
-		}
-	}
-	return nil
-}
-
-func getInputFromSensor(sensors *list.List, sensorName string, inputNumber int) *Input {
-	for e := sensors.Front(); e != nil; e = e.Next() {
-		sensor := e.Value.(*Sensor)
-		if sensor.name == sensorName {
-			for t := sensor.inputs.Front(); t != nil; t = t.Next() {
-				input := t.Value.(*Input)
-				if input.number == inputNumber {
-					return input
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func addSensorToList(sensors *list.List, sensorName string) {
-	sensor := new(Sensor)
-	sensor.name = sensorName
-	sensor.inputs = list.New()
-	sensors.PushBack(sensor)
-}
-
-func addInputToSensor(sensors *list.List, sensorName string, inputNumber int, inputType string) {
-	input := new(Input)
-	input.number = inputNumber
-	input.type_ = inputType
-	sensor := getSensorFromList(sensors, sensorName)
-	sensor.inputs.PushBack(input)
-}
-
 func setValue(input *Input, rawValue string) {
 	switch input.type_ {
 	case "temp":
@@ -115,15 +42,61 @@ func setValue(input *Input, rawValue string) {
 	}
 }
 
+func getContentFile(path string) string {
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return string(content[:len(content)-1])
+}
+
+func addInput(sensor *Sensor, inputNumber int, inputType string) *Input {
+	input := new(Input)
+	input.number = inputNumber
+	input.type_ = inputType
+	sensor.inputs.PushBack(input)
+	return input
+}
+
+func getInput(sensor *Sensor, inputNumber int, inputType string) *Input {
+	for t := sensor.inputs.Front(); t != nil; t = t.Next() {
+		input := t.Value.(*Input)
+		if input.number == inputNumber && input.type_ == inputType {
+			return input
+		}
+	}
+	return addInput(sensor, inputNumber, inputType)
+}
+
+func addSensor(sensors *list.List, sensorName string) *Sensor {
+	sensor := new(Sensor)
+	sensor.name = sensorName
+	sensor.inputs = list.New()
+	sensors.PushBack(sensor)
+	return sensor
+}
+
+func getSensor(sensors *list.List, sensorName string) *Sensor {
+	for e := sensors.Front(); e != nil; e = e.Next() {
+		sensor := e.Value.(*Sensor)
+		if sensor.name == sensorName {
+			return sensor
+		}
+	}
+	return addSensor(sensors, sensorName)
+}
+
 func refreshSensorValues(files []os.FileInfo, path string, sensors *list.List) {
 
 	validFile := regexp.MustCompile(`^([a-z]+)([0-9]+)_(input|label)$`)
-
 	name := getContentFile(path + "/name")
 
-	if !containsSensor(sensors, name) {
-		addSensorToList(sensors, name)
+	// TODO: tmp fix for handle 'thinkpad' sensor error
+	if name == "thinkpad" {
+		return
 	}
+
+	sensor := getSensor(sensors, name)
 
 	for _, file := range files {
 
@@ -132,14 +105,10 @@ func refreshSensorValues(files []os.FileInfo, path string, sensors *list.List) {
 			content := getContentFile(fileName)
 			subs := validFile.FindSubmatch([]byte(file.Name()))
 			number := toInt(string(subs[2]))
-			type_ := string(subs[1])
+			inputType := string(subs[1])
 			fileType := string(subs[3])
 
-			if !sensorContainsInput(sensors, name, number) {
-				addInputToSensor(sensors, name, number, type_)
-			}
-
-			input := getInputFromSensor(sensors, name, number)
+			input := getInput(sensor, number, inputType)
 			switch fileType {
 			case "input":
 				setValue(input, content)
