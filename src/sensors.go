@@ -9,6 +9,8 @@ import (
 	"strconv"
 )
 
+const SensorDir = "/sys/class/hwmon"
+
 type Input struct {
 	number int
 	type_  string
@@ -30,14 +32,12 @@ func toInt(str string) int {
 }
 
 func setValue(input *Input, rawValue string) {
-	switch input.type_ {
-	case "temp":
+	if input.type_ == "temp" && rawValue != "N/A" {
 		dec := toInt(rawValue)
 		float := float64(dec) / 1000
 		str := strconv.FormatFloat(float, 'f', 0, 32)
 		input.value = str
-		break
-	default:
+	} else {
 		input.value = rawValue
 	}
 }
@@ -45,7 +45,8 @@ func setValue(input *Input, rawValue string) {
 func getContentFile(path string) string {
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Fatal(err)
+		// Handle the read error from a corrupted input file
+		return "N/A"
 	}
 	return string(content[:len(content)-1])
 }
@@ -90,12 +91,6 @@ func refreshSensorValues(files []os.FileInfo, path string, sensors *list.List) {
 
 	validFile := regexp.MustCompile(`^([a-z]+)([0-9]+)_(input|label)$`)
 	name := getContentFile(path + "/name")
-
-	// TODO: tmp fix for handle 'thinkpad' sensor error
-	if name == "thinkpad" {
-		return
-	}
-
 	sensor := getSensor(sensors, name)
 
 	for _, file := range files {
@@ -123,13 +118,13 @@ func refreshSensorValues(files []os.FileInfo, path string, sensors *list.List) {
 
 func refreshSensorList(sensors *list.List) {
 
-	links, err := ioutil.ReadDir("/sys/class/hwmon")
+	links, err := ioutil.ReadDir(SensorDir)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	for _, sensor := range links {
-		path := "/sys/class/hwmon/" + sensor.Name()
+		path := SensorDir + "/" + sensor.Name()
 		files, err := ioutil.ReadDir(path)
 		if err != nil {
 			log.Fatal(err)

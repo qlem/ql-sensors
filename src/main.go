@@ -14,7 +14,7 @@ func recoverTerm(term *Terminal) {
 	resetTerminal(term)
 }
 
-func loop(term *Terminal, sensors *list.List) {
+func loop(term *Terminal, sensors *list.List, cpus []Cpu) {
 	reader := bufio.NewReader(os.Stdin)
 	run := true
 	ref := time.Unix(0, 0)
@@ -30,7 +30,8 @@ func loop(term *Terminal, sensors *list.List) {
 		if delta.Seconds() >= 1 {
 			windowClear(term)
 			refreshSensorList(sensors)
-			printValues(term, sensors)
+			cpus = refreshCpus(cpus)
+			printValues(term, sensors, cpus)
 			windowRefresh(term)
 			ref = time.Now()
 		}
@@ -40,6 +41,7 @@ func loop(term *Terminal, sensors *list.List) {
 func main() {
 	term := new(Terminal)
 	sensors := list.New()
+	cpus := make([]Cpu, 4, 10)
 
 	// handle ^C
 	c := make(chan os.Signal, 1)
@@ -54,6 +56,6 @@ func main() {
 	initTerminal()
 	initWindow(term, 0, 0)
 	nonCanonicalMode()
-	loop(term, sensors)
+	loop(term, sensors, cpus)
 	recoverTerm(term)
 }

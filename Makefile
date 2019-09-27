@@ -13,7 +13,8 @@ INSTALL_DIR	:=	/usr/local/bin
 SRC		:=	main.go		\
 			ncurses.go	\
 			print.go	\
-			sensors.go
+			sensors.go	\
+			cpu.go
 SRC	:=	$(addprefix $(SRC_DIR)/, $(SRC))
 
 all:
