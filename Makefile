@@ -14,7 +14,7 @@ SRC		:=	main.go		\
 			ncurses.go	\
 			print.go	\
 			sensors.go	\
-			cpu.go
+			utils.go
 SRC	:=	$(addprefix $(SRC_DIR)/, $(SRC))
 
 all:

@@ -29,15 +29,6 @@ func computeUsage(tokens [][]byte, cpus []Cpu, index int) {
 	cpus[index].prevTotal = total
 }
 
-func countDigit(line string, i *int) int {
-	count := 0
-	for line[*i] >= '0' && line[*i] <= '9' {
-		count++
-		*i++
-	}
-	return count
-}
-
 func parseLine(line string) [][]byte {
 	j := 0
 	tmp := 0
@@ -45,7 +36,8 @@ func parseLine(line string) [][]byte {
 	for i := 0; i < len(line); i++ {
 		tmp = i
 		if line[i] >= '0' && line[i] <= '9' && (i > 0 && line[i-1] == ' ') {
-			size := countDigit(line, &i)
+			size := countDigit(line, i)
+			i += size
 			tokens[j] = make([]byte, size)
 			for k := 0; k < size; k++ {
 				tokens[j][k] = line[tmp]
@@ -82,6 +74,9 @@ func refreshCpus(cpus []Cpu) []Cpu {
 		}
 		computeUsage(tokens, cpus, i)
 		i++
+	}
+	if err := file.Close(); err != nil {
+		log.Fatal(err)
 	}
 	return cpus
 }

@@ -23,14 +23,6 @@ type Sensor struct {
 	inputs *list.List
 }
 
-func toInt(str string) int {
-	number, err := strconv.Atoi(str)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return number
-}
-
 func setValue(input *Input, rawValue string) {
 	if input.type_ == "temp" && rawValue != "N/A" {
 		dec := toInt(rawValue)

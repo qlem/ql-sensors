@@ -2,40 +2,54 @@ package main
 
 import (
 	"container/list"
-	"fmt"
-	"log"
-	"strings"
 )
 
 /*
-CPUs USAGE              TOTAL [100]
-[100] [100] [100] [100] [100] [100]
-[100] [100]
-MEM      USED     TOTAL           %
- ram       8.00    16.00G     [ 50]
- swap      0.00     8.00G     [  0]
-SENSOR            TYPE        VALUE
-                  Press <q> to quit
+SENSOR TYPE VALUE
+Press <q> to quit
 */
 
 const (
-	TotalWidth          = 35
-	SensorOffset1       = 2
-	SensorOffset2       = 19
-	CoreLength          = 5
-	CpuTotalValueOffset = 31
-	CpuLabel            = "CPUs USAGE              TOTAL [   ]"
-	MemLabel            = "MEM      USED     TOTAL           %"
-	SensorLabel         = "SENSOR            TYPE        VALUE"
-	QuitLabel           = "                  Press <q> to quit"
+	SensorLabelElem1 = "SENSOR "
+	SensorLabelElem2 = "TYPE "
+	SensorLabelElem3 = "VALUE"
+	QuitLabel        = "Press <q> to quit"
 )
 
-func printSensorsValues(term *Terminal, sensors *list.List, y *int) {
-	setReverse(term)
-	printWindow(term, *y, 0, SensorLabel)
-	unsetReverse(term)
-	*y++
-	// TODO truncate if sensor name / type / value > column
+func getQuitLabel(cols []int) string {
+	length := cols[0] + cols[1] + cols[2]
+	label := make([]byte, length)
+	for i := 0; i < cols[0]+cols[1]+cols[2]-len(QuitLabel); i++ {
+		label[i] = ' '
+	}
+	for i, c := range QuitLabel {
+		label[i+length-len(QuitLabel)] = byte(c)
+	}
+	return string(label)
+}
+
+func getLabel(cols []int) string {
+	length := cols[0] + cols[1] + cols[2]
+	label := make([]byte, length)
+	for i, c := range SensorLabelElem1 {
+		label[i] = byte(c)
+	}
+	for i := len(SensorLabelElem1); i < cols[0]; i++ {
+		label[i] = ' '
+	}
+	for i, c := range SensorLabelElem2 {
+		label[i+cols[0]] = byte(c)
+	}
+	for i := cols[0] + len(SensorLabelElem2); i < length-len(SensorLabelElem3); i++ {
+		label[i] = ' '
+	}
+	for i, c := range SensorLabelElem3 {
+		label[i+length-len(SensorLabelElem3)] = byte(c)
+	}
+	return string(label)
+}
+
+func printValues(term *Terminal, sensors *list.List, cols []int, y *int) {
 	for e := sensors.Front(); e != nil; e = e.Next() {
 		sensor := e.Value.(*Sensor)
 		setBold(term)
@@ -45,64 +59,49 @@ func printSensorsValues(term *Terminal, sensors *list.List, y *int) {
 			input := t.Value.(*Input)
 			if sensor.inputs.Len() > 1 {
 				*y++
-				printWindow(term, *y, SensorOffset1, input.label)
+				printWindow(term, *y, 2, input.label)
 			}
-			printWindow(term, *y, SensorOffset2, input.type_)
-			offset := TotalWidth - len(input.value)
+			printWindow(term, *y, cols[0], input.type_)
+			offset := cols[0] + cols[1] + cols[2] - len(input.value)
 			printWindow(term, *y, offset, input.value)
 		}
 		*y++
 	}
 }
 
-func printMemInfo(term *Terminal, y *int) {
-	x := 0
-	setReverse(term)
-	printWindow(term, *y, x, MemLabel)
-	unsetReverse(term)
-
-	*y++
-	printWindow(term, *y, x, " ram       8.00    16.00G     [ 50]")
-	*y++
-	printWindow(term, *y, x, " swap      0.00     8.00G     [  0]")
-	*y++
-}
-
-func printCpuUsage(term *Terminal, cpus []Cpu, y *int) {
-	setReverse(term)
-	printWindow(term, 0, 0, CpuLabel)
-	var usage strings.Builder
-	if _, err := fmt.Fprintf(&usage, "%3d", cpus[0].usage); err != nil {
-		log.Fatal(err)
-	}
-	printWindow(term, 0, CpuTotalValueOffset, usage.String())
-	unsetReverse(term)
-	x := 0
-	*y = 1
-	for i := 1; i < len(cpus); i++ {
-		printWindow(term, *y, x, "[   ]")
-		x++
-		usage.Reset()
-		if _, err := fmt.Fprintf(&usage, "%3d", cpus[i].usage); err != nil {
-			log.Fatal(err)
+func computeColumnsWidth(sensors *list.List, cols []int) {
+	cols[0] = len(SensorLabelElem1)
+	cols[1] = len(SensorLabelElem2)
+	cols[2] = len(SensorLabelElem3)
+	for e := sensors.Front(); e != nil; e = e.Next() {
+		sensor := e.Value.(*Sensor)
+		if len(sensor.name)+1 > cols[0] {
+			cols[0] = len(sensor.name) + 1
 		}
-		printWindow(term, *y, x, usage.String())
-		if x+CoreLength > TotalWidth {
-			*y++
-			x = 0
-		} else {
-			x += CoreLength
+		for t := sensor.inputs.Front(); t != nil; t = t.Next() {
+			input := t.Value.(*Input)
+			if len(input.label)+3 > cols[0] {
+				cols[0] = len(input.label) + 3
+			}
+			if len(input.type_)+1 > cols[1] {
+				cols[1] = len(input.type_) + 1
+			}
+			if len(input.value) > cols[2] {
+				cols[2] = len(input.value)
+			}
 		}
 	}
-	*y++
 }
 
-func printValues(term *Terminal, sensors *list.List, cpus []Cpu) {
-	y := 0
-	printCpuUsage(term, cpus, &y)
-	printMemInfo(term, &y)
-	printSensorsValues(term, sensors, &y)
+func print_(term *Terminal, sensors *list.List) {
+	cols := make([]int, 3)
+	computeColumnsWidth(sensors, cols)
 	setReverse(term)
-	printWindow(term, y, 0, QuitLabel)
+	printWindow(term, 0, 0, getLabel(cols))
+	unsetReverse(term)
+	y := 1
+	printValues(term, sensors, cols, &y)
+	setReverse(term)
+	printWindow(term, y, 0, getQuitLabel(cols))
 	unsetReverse(term)
 }
